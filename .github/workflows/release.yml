@@ -13,13 +13,10 @@ jobs:
       ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.GPG_SIGN_PW }}
     steps:
       - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-
-      - name: Set up JDK 8
+      - name: Set up JDK 17
         uses: actions/setup-java@v3
         with:
-          java-version: 8
+          java-version: 17
           distribution: 'temurin'
 
       - name: Setup Gradle
@@ -40,13 +37,10 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-
-      - name: Set up JDK 8
+      - name: Set up JDK 17
         uses: actions/setup-java@v3
         with:
-          java-version: 8
+          java-version: 17
           distribution: 'temurin'
 
       - name: Setup Gradle

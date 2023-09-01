@@ -9,7 +9,7 @@ plugins {
 }
 
 group = 'me.grapebaba'
-version = '0.1.0-SNAPSHOT'
+version = '0.1.0'
 
 repositories {
 	mavenCentral()
@@ -123,6 +123,62 @@ spotless {
 		formatAnnotations()
 		importOrder('java|javax', '\\#')
 		removeUnusedImports()
+	}
+}
+
+publishing {
+	publications {
+		mavenJava(MavenPublication) {
+
+			from components.java
+
+			pom {
+				name = rootProject.name
+				description = 'Client library for Flashbots MEV-share Matchmaker.'
+				url = 'https://github.com/optimism-java/mev-share-java'
+
+				licenses {
+					license {
+						name = 'MIT License'
+					}
+				}
+				developers {
+					developer {
+						id = 'grapebaba'
+						name = 'Kai Chen'
+						email = '281165273grape@gmail.com'
+					}
+				}
+				scm {
+					connection = 'scm:git:git://github.com/optimism-java/' + rootProject.name + '.git'
+					developerConnection = 'scm:git:ssh://github.com/optimism-java/' + rootProject.name + '.git'
+					url = 'https://github.com/optimism-java/' + rootProject.name
+				}
+			}
+		}
+	}
+	repositories {
+		maven {
+			name = "GitHubPackages"
+			url = "https://maven.pkg.github.com/optimism-java/" + rootProject.name
+			credentials {
+				username = System.getenv("GITHUB_ACTOR")
+				password = System.getenv("GITHUB_TOKEN")
+			}
+		}
+	}
+}
+
+signing {
+	sign publishing.publications.mavenJava
+	def signingKey = findProperty("signingKey")
+	def signingPassword = findProperty("signingPassword")
+	useInMemoryPgpKeys(signingKey, signingPassword)
+}
+
+nexusPublishing {
+	repositories {
+		sonatype()
 	}
 }
 
