@@ -2,10 +2,12 @@ package bundle;
 
 import java.io.IOException;
 import java.math.BigInteger;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
+import io.github.cdimascio.dotenv.Dotenv;
 import io.reactivex.disposables.Disposable;
 import net.flashbots.MevShareClient;
 import net.flashbots.models.bundle.BundleItemType;
@@ -33,9 +35,13 @@ import org.web3j.utils.Numeric;
 public class RpcMevSendBundle {
 
     public static void main(String[] args) throws ExecutionException, InterruptedException, IOException {
-        Credentials sender = Credentials.create("<hex string of privateKey>");
-        var web3j = Web3j.build(new HttpService("<L1 network url>"));
-        var mevShareClient = new MevShareClient(Network.GOERLI, sender, web3j);
+        Dotenv dotenv = Dotenv.configure()
+                .directory(Paths.get("", "example").toAbsolutePath().toString())
+                .filename(".env")
+                .load();
+        Credentials authSigner = Credentials.create(dotenv.get("AUTH_PRIVATE_KEY"));
+        Web3j web3j = Web3j.build(new HttpService(dotenv.get("PROVIDER_URL")));
+        var mevShareClient = new MevShareClient(Network.GOERLI, authSigner, web3j);
 
         CompletableFuture<MevShareEvent> future = new CompletableFuture<>();
         Disposable eventSource = mevShareClient.subscribe(mevShareEvent -> {
@@ -56,14 +62,14 @@ public class RpcMevSendBundle {
 
         BundleItemType.HashItem bundleItem = new BundleItemType.HashItem().setHash(mevShareEvent.getHash());
 
-        Credentials signer = Credentials.create("<private key>");
+        Credentials signer = Credentials.create(dotenv.get("SENDER_PRIVATE_KEY"));
         BigInteger nonce = web3j.ethGetTransactionCount(signer.getAddress(), DefaultBlockParameterName.PENDING)
                 .send()
                 .getTransactionCount();
         BigInteger gasPrice = web3j.ethGasPrice().send().getGasPrice();
         BigInteger gasLimit = DefaultGasProvider.GAS_LIMIT;
-        final String to = "<to address>";
-        final String amount = "<ether amount>";
+        final String to = "0x56EdF679B0C80D528E17c5Ffe514dc9a1b254b9c";
+        final String amount = "0.001";
         RawTransaction rawTransaction = RawTransaction.createEtherTransaction(
                 nonce,
                 gasPrice,
