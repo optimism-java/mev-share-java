@@ -2,9 +2,11 @@ package bundle;
 
 import java.io.IOException;
 import java.math.BigInteger;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
+import io.github.cdimascio.dotenv.Dotenv;
 import net.flashbots.MevShareClient;
 import net.flashbots.models.bundle.BundleItemType;
 import net.flashbots.models.bundle.BundleParams;
@@ -31,10 +33,13 @@ import org.web3j.utils.Numeric;
 public class RpcMevSimBundle {
 
     public static void main(String[] args) throws IOException, ExecutionException, InterruptedException {
-
-        Credentials sender = Credentials.create("<hex string of privateKey>");
-        var web3j = Web3j.build(new HttpService("<L1 network url>"));
-        var mevShareClient = new MevShareClient(Network.GOERLI, sender, web3j);
+        Dotenv dotenv = Dotenv.configure()
+                .directory(Paths.get("", "example").toAbsolutePath().toString())
+                .filename(".env")
+                .load();
+        Credentials authSigner = Credentials.create(dotenv.get("AUTH_PRIVATE_KEY"));
+        Web3j web3j = Web3j.build(new HttpService(dotenv.get("PROVIDER_URL")));
+        var mevShareClient = new MevShareClient(Network.GOERLI, authSigner, web3j);
 
         var latestBlock = web3j.ethGetBlockByNumber(DefaultBlockParameterName.LATEST, false)
                 .send()
@@ -48,11 +53,11 @@ public class RpcMevSimBundle {
                 .setBlock(latestBlock.getNumber().subtract(BigInteger.ONE))
                 .setMaxBlock(latestBlock.getNumber().add(BigInteger.valueOf(10)));
 
-        Credentials signer = Credentials.create("<private key>");
+        Credentials signer = Credentials.create(dotenv.get("SENDER_PRIVATE_KEY"));
         BigInteger nonce = web3j.ethGetTransactionCount(signer.getAddress(), DefaultBlockParameterName.PENDING)
                 .send()
                 .getTransactionCount();
-        final String to = "<to address>";
+        final String to = "0x56EdF679B0C80D528E17c5Ffe514dc9a1b254b9c";
         RawTransaction rawTransaction = RawTransaction.createEtherTransaction(
                 nonce,
                 web3j.ethGasPrice().send().getGasPrice(),

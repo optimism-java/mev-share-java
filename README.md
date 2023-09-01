@@ -11,8 +11,6 @@ Based on [Specs](https://github.com/flashbots/mev-share)
 
 ## Using
 
-Download the latest jar from maven central.
-
 ### Maven
 
 ```xml
