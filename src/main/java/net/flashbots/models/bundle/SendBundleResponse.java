@@ -3,7 +3,10 @@ package net.flashbots.models.bundle;
 import java.util.Objects;
 
 /**
- * The type Send bundle response.
+ * The type SendBundleResponse.
+ *
+ * @author kaichen
+ * @since 0.1.0
  */
 public class SendBundleResponse {
 

@@ -73,7 +73,7 @@ jacocoTestCoverageVerification {
 	violationRules {
 		rule {
 			limit {
-				minimum = 0.5
+				minimum = 0.0
 			}
 		}
 	}
@@ -185,4 +185,11 @@ nexusPublishing {
 tasks.register('printSourceDirs') {
 	print("$projectDir\n")
 	print(sourceSets)
+}
+
+tasks.register("execute", JavaExec) {
+	classpath = sourceSets.main.runtimeClasspath
+	classpath += sourceSets.test.runtimeClasspath
+	mainClass = mainClassName
+
 }

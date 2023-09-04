@@ -15,7 +15,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import net.flashbots.common.MevShareApiException;
 import net.flashbots.models.common.JsonRpc20Request;
 import net.flashbots.models.common.JsonRpc20Response;
-import okhttp3.*;
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 import okhttp3.sse.EventSource;
 import okhttp3.sse.EventSources;
 import org.slf4j.Logger;
@@ -31,7 +37,7 @@ import org.web3j.utils.Numeric;
  * @author kaichen
  * @since 0.1.0
  */
-public class HttpProvider {
+public class HttpProvider implements AutoCloseable {
 
     private static final Logger LOGGER = getLogger(HttpProvider.class);
     private final OkHttpClient httpClient;
@@ -189,5 +195,11 @@ public class HttpProvider {
 
     private long nextId() {
         return nextId.incrementAndGet();
+    }
+
+    @Override
+    public void close() {
+        this.httpClient.dispatcher().executorService().shutdown();
+        this.httpClient.connectionPool().evictAll();
     }
 }

@@ -48,5 +48,37 @@ public class SseSubscribe {
         disposable.dispose();
 
         System.out.println(events);
+
+        CountDownLatch latch1 = new CountDownLatch(5);
+        List<MevShareEvent> txEvents = new ArrayList<>();
+        Consumer<MevShareEvent> txEventListener = mevShareEvent -> {
+            txEvents.add(mevShareEvent);
+            latch1.countDown();
+        };
+        Disposable disposable1 = mevShareClient.subscribeTx(txEventListener);
+        latch1.await();
+
+        // remember to release when no longer to subscribe events
+        disposable1.dispose();
+
+        System.out.println(txEvents);
+
+        mevShareClient.close();
+        // subscribe bundle events
+        // bundle events are very rare, so we comment it out
+
+        //        CountDownLatch latch2 = new CountDownLatch(1);
+        //        List<MevShareEvent> bundleEvents = new ArrayList<>();
+        //        Consumer<MevShareEvent> bundleEventListener = mevShareEvent -> {
+        //            bundleEvents.add(mevShareEvent);
+        //            latch2.countDown();
+        //        };
+        //        Disposable disposable2 = mevShareClient.subscribeBundle(bundleEventListener);
+        //        latch2.await();
+        //
+        //        // remember to release when no longer to subscribe events
+        //        disposable2.dispose();
+        //
+        //        System.out.println(bundleEvents);
     }
 }

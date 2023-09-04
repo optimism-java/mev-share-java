@@ -8,6 +8,9 @@ import net.flashbots.provider.json.HintPreferencesSerializer;
 
 /**
  * The type Bundle privacy.
+ *
+ * @author kaichen
+ * @since 0.1.0
  */
 public class BundlePrivacy {
 

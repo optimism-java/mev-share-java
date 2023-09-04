@@ -4,6 +4,9 @@ import java.util.Objects;
 
 /**
  * The type Refund.
+ *
+ * @author kaichen
+ * @since 0.1.0
  */
 public class Refund {
 
