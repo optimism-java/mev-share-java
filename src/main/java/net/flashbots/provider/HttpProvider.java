@@ -163,6 +163,10 @@ public class HttpProvider implements AutoCloseable {
                     return future;
                 })
                 .exceptionallyCompose(throwable -> {
+                    if (throwable instanceof MevShareApiException) {
+                        future.completeExceptionally(throwable);
+                        return future;
+                    }
                     MevShareApiException e = new MevShareApiException(throwable);
                     future.completeExceptionally(e);
                     return future;
