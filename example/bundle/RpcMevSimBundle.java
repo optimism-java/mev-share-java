@@ -73,7 +73,7 @@ public class RpcMevSimBundle {
                 .getTransactionCount();
         final String to = "0x56EdF679B0C80D528E17c5Ffe514dc9a1b254b9c";
         RawTransaction rawTransaction = RawTransaction.createEtherTransaction(
-                nonce.add(BigInteger.ONE),
+                nonce,
                 web3j.ethGasPrice().send().getGasPrice(),
                 DefaultGasProvider.GAS_LIMIT,
                 to,
