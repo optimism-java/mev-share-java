@@ -3,7 +3,10 @@ package net.flashbots.models.bundle;
 import java.util.Objects;
 
 /**
- * The type Refund config.
+ * The type RefundConfig.
+ *
+ * @author kaichen
+ * @since 0.1.0
  */
 public class RefundConfig {
 

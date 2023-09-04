@@ -72,5 +72,7 @@ public class RpcSendPrivateTx {
 
         CompletableFuture<String> res = mevShareClient.sendPrivateTransaction(signRawTx, txOptions);
         System.out.println(res.get());
+
+        mevShareClient.close();
     }
 }

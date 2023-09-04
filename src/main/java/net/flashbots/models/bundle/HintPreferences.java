@@ -3,7 +3,10 @@ package net.flashbots.models.bundle;
 import java.util.Objects;
 
 /**
- * The type Hint preferences.
+ * The type HintPreferences.
+ *
+ * @author kaichen
+ * @since 0.1.0
  */
 public class HintPreferences {
     private boolean calldata;

@@ -76,7 +76,7 @@ public class RpcMevSendBundle {
                 gasLimit,
                 to,
                 Convert.toWei(amount, Convert.Unit.ETHER).toBigInteger());
-        byte[] signedMessage = TransactionEncoder.signMessage(rawTransaction, Network.GOERLI.chainId(), signer);
+        byte[] signedMessage = TransactionEncoder.signMessage(rawTransaction, signer);
         String hexValue = Numeric.toHexString(signedMessage);
 
         BundleItemType.TxItem txItem =
@@ -87,5 +87,7 @@ public class RpcMevSendBundle {
 
         CompletableFuture<SendBundleResponse> res = mevShareClient.sendBundle(bundleParams);
         System.out.println(res.get().getBundleHash());
+
+        mevShareClient.close();
     }
 }

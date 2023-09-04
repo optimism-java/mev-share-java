@@ -43,5 +43,7 @@ public class SseHistorical {
         CompletableFuture<List<EventHistoryEntry>> eventHistory = mevShareClient.getEventHistory(historyParams);
         List<EventHistoryEntry> eventHistoryEntries = eventHistory.get();
         System.out.println(eventHistoryEntries);
+
+        mevShareClient.close();
     }
 }

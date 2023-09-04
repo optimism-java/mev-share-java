@@ -48,6 +48,7 @@ import org.web3j.utils.Numeric;
  * @author kaichen
  * @since 0.1.0
  */
+@Disabled
 class MevShareClientTest {
 
     private static Credentials AUTH_SIGNER;

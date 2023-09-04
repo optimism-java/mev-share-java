@@ -1,15 +1,14 @@
 package net.flashbots;
 
-import java.io.IOException;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import static org.slf4j.LoggerFactory.getLogger;
 
@@ -40,8 +39,13 @@ import okhttp3.Request;
 import okhttp3.sse.EventSource;
 import org.slf4j.Logger;
 import org.web3j.crypto.Credentials;
+import org.web3j.crypto.RawTransaction;
+import org.web3j.crypto.Sign;
+import org.web3j.crypto.TransactionEncoder;
 import org.web3j.protocol.Web3j;
 import org.web3j.protocol.core.methods.response.EthTransaction;
+import org.web3j.protocol.core.methods.response.Transaction;
+import org.web3j.utils.Numeric;
 
 /**
  * The type MevShareClient.
@@ -49,7 +53,7 @@ import org.web3j.protocol.core.methods.response.EthTransaction;
  * @author kaichen
  * @since 0.1.0
  */
-public class MevShareClient implements MevShareApi {
+public class MevShareClient implements MevShareApi, AutoCloseable {
 
     private static final Logger LOGGER = getLogger(MevShareClient.class);
 
@@ -189,19 +193,67 @@ public class MevShareClient implements MevShareApi {
 
     private CompletableFuture<SimBundleResponse> createSimulateBundle(
             final BundleItemType.HashItem firstTx, final BundleParams params, final SimBundleOptions options) {
-        return getTransaction(firstTx.getHash()).thenComposeAsync(tx -> {
+        return getTransaction(firstTx.getHash()).thenCompose(tx -> {
             if (tx.getTransaction().isEmpty()) {
-                throw new MevShareApiException("Target transaction did not appear on chain");
+                return CompletableFuture.failedFuture(
+                        new MevShareApiException("Target transaction did not appear on chain"));
             }
-            var simBlock = options != null
+            var simBlock = options != null && options.getParentBlock() != null
                     ? options.getParentBlock()
                     : tx.getTransaction().get().getBlockNumber().subtract(BigInteger.ONE);
+
+            Transaction transaction = tx.getTransaction().get();
+            LOGGER.debug("Transaction {}", transaction);
+
+            RawTransaction rawTransaction;
+            if ("0x2".equalsIgnoreCase(transaction.getType())) {
+                rawTransaction = RawTransaction.createTransaction(
+                        transaction.getChainId(),
+                        transaction.getNonce(),
+                        transaction.getGas(),
+                        transaction.getTo(),
+                        transaction.getValue(),
+                        transaction.getInput(),
+                        transaction.getMaxPriorityFeePerGas(),
+                        transaction.getMaxFeePerGas());
+            } else if ("0x1".equalsIgnoreCase(transaction.getType())) {
+                rawTransaction = RawTransaction.createTransaction(
+                        transaction.getChainId(),
+                        transaction.getNonce(),
+                        transaction.getGasPrice(),
+                        transaction.getGas(),
+                        transaction.getTo(),
+                        transaction.getValue(),
+                        transaction.getInput(),
+                        transaction.getAccessList().stream()
+                                .map(accessListObject -> {
+                                    org.web3j.crypto.AccessListObject accessListObjectRaw =
+                                            new org.web3j.crypto.AccessListObject();
+                                    accessListObjectRaw.setAddress(accessListObject.getAddress());
+                                    accessListObjectRaw.setStorageKeys(accessListObject.getStorageKeys());
+                                    return accessListObjectRaw;
+                                })
+                                .collect(Collectors.toList()));
+            } else {
+                rawTransaction = RawTransaction.createTransaction(
+                        transaction.getNonce(),
+                        transaction.getGasPrice(),
+                        transaction.getGas(),
+                        transaction.getTo(),
+                        transaction.getValue(),
+                        transaction.getInput());
+            }
+
+            Sign.SignatureData signatureData = new Sign.SignatureData(
+                    Sign.getVFromRecId((int) transaction.getV()),
+                    Numeric.hexStringToByteArray(transaction.getR()),
+                    Numeric.hexStringToByteArray(transaction.getS()));
 
             var body = new ArrayList<>(params.getBody());
             body.set(
                     0,
                     new BundleItemType.TxItem()
-                            .setTx(tx.getTransaction().get().getInput())
+                            .setTx(Numeric.toHexString(TransactionEncoder.encode(rawTransaction, signatureData)))
                             .setCanRevert(false));
             var paramsWithSignedTx = params.clone().setBody(body);
 
@@ -213,34 +265,55 @@ public class MevShareClient implements MevShareApi {
     }
 
     private CompletableFuture<EthTransaction> getTransaction(final String hash) {
-        return CompletableFuture.supplyAsync(() -> {
-            Disposable subscribe = null;
-            try {
-                // try to get tx first
-                EthTransaction res = web3j.ethGetTransactionByHash(hash).send();
-                if (res.getTransaction().isPresent()) {
-                    return res;
-                }
-
+        return web3j.ethGetTransactionByHash(hash).sendAsync().thenCompose(res -> {
+            if (res.getTransaction().isEmpty()) {
+                final CountDownLatch latch = new CountDownLatch(1);
                 final CompletableFuture<EthTransaction> txFuture = new CompletableFuture<>();
-                subscribe = web3j.blockFlowable(false).subscribe(block -> {
-                    EthTransaction hashTx = web3j.ethGetTransactionByHash(hash).send();
-                    if (hashTx.getTransaction().isPresent()) {
-                        txFuture.complete(hashTx);
+                Disposable disposable = null;
+                try {
+                    disposable = web3j.blockFlowable(false).subscribe(block -> {
+                        EthTransaction hashTx =
+                                web3j.ethGetTransactionByHash(hash).send();
+                        if (hashTx.getTransaction().isPresent()) {
+                            txFuture.complete(hashTx);
+                            latch.countDown();
+                        }
+                    });
+
+                    try {
+                        latch.await(5, TimeUnit.MINUTES);
+                    } catch (InterruptedException e) {
+                        LOGGER.error("Interrupted while waiting for transaction by hash", e);
+                        if (!disposable.isDisposed()) {
+                            disposable.dispose();
+                        }
+                        Thread.currentThread().interrupt();
+                        return CompletableFuture.failedFuture(
+                                new MevShareApiException("Interrupted while waiting for transaction by hash", e));
                     }
-                });
-                return txFuture.get(5, TimeUnit.MINUTES);
-            } catch (InterruptedException | ExecutionException | TimeoutException | IOException e) {
-                LOGGER.error("Failed to get transaction by hash", e);
-                if (e instanceof InterruptedException) {
-                    Thread.currentThread().interrupt();
+
+                    if (!disposable.isDisposed()) {
+                        disposable.dispose();
+                    }
+
+                    if (!txFuture.isDone()) {
+                        return CompletableFuture.failedFuture(
+                                new MevShareApiException("Failed to get transaction by hash after 5 minutes"));
+                    }
+                } finally {
+                    if (disposable != null && !disposable.isDisposed()) {
+                        disposable.dispose();
+                    }
                 }
-                throw new MevShareApiException("Failed to get transaction by hash", e);
-            } finally {
-                if (subscribe != null) {
-                    subscribe.dispose();
-                }
+                return txFuture;
             }
+            return CompletableFuture.completedFuture(res);
         });
+    }
+
+    @Override
+    public void close() {
+        this.web3j.shutdown();
+        this.provider.close();
     }
 }

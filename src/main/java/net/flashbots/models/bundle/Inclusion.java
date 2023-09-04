@@ -8,6 +8,9 @@ import net.flashbots.provider.json.BigIntToHexStringSerializer;
 
 /**
  * The type Inclusion.
+ *
+ * @author kaichen
+ * @since 0.1.0
  */
 public class Inclusion {
 
