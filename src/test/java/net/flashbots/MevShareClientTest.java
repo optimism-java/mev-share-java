@@ -18,12 +18,20 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.reactivex.disposables.Disposable;
-import net.flashbots.models.bundle.*;
+import net.flashbots.models.bundle.BundleItemType;
+import net.flashbots.models.bundle.BundleParams;
+import net.flashbots.models.bundle.BundlePrivacy;
+import net.flashbots.models.bundle.HintPreferences;
+import net.flashbots.models.bundle.Inclusion;
+import net.flashbots.models.bundle.PrivateTxOptions;
+import net.flashbots.models.bundle.SendBundleResponse;
+import net.flashbots.models.bundle.SimBundleOptions;
 import net.flashbots.models.common.Network;
 import net.flashbots.models.event.EventHistoryEntry;
 import net.flashbots.models.event.EventHistoryInfo;
 import net.flashbots.models.event.EventHistoryParams;
 import net.flashbots.models.event.MevShareEvent;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
@@ -48,7 +56,6 @@ import org.web3j.utils.Numeric;
  * @author kaichen
  * @since 0.1.0
  */
-@Disabled
 class MevShareClientTest {
 
     private static Credentials AUTH_SIGNER;
@@ -64,8 +71,13 @@ class MevShareClientTest {
             throws InvalidAlgorithmParameterException, NoSuchAlgorithmException, NoSuchProviderException {
         AUTH_SIGNER = Credentials.create(Keys.createEcKeyPair());
         SIGNER = Credentials.create(System.getenv("SIGNER_PRIVATE_KEY"));
-        MEV_SHARE_CLIENT = new MevShareClient(Network.GOERLI, AUTH_SIGNER, WEB3J);
         WEB3J = Web3j.build(new HttpService(System.getenv("GOERLI_RPC_URL")));
+        MEV_SHARE_CLIENT = new MevShareClient(Network.GOERLI, AUTH_SIGNER, WEB3J);
+    }
+
+    @AfterAll
+    static void afterAll() {
+        MEV_SHARE_CLIENT.close();
     }
 
     /**
@@ -100,6 +112,7 @@ class MevShareClientTest {
 
     @Test
     @DisplayName("Subscribe event")
+    @Disabled
     void subscribeEvent() throws InterruptedException, ExecutionException {
         final CountDownLatch latch = new CountDownLatch(3);
         var ref = new AtomicReference<MevShareEvent>();
@@ -116,6 +129,7 @@ class MevShareClientTest {
 
     @Test
     @DisplayName("Send bundle with hash")
+    @Disabled
     void sendBundle()
             throws InvalidAlgorithmParameterException, NoSuchAlgorithmException, NoSuchProviderException,
                     ExecutionException, InterruptedException, IOException {
@@ -315,6 +329,7 @@ class MevShareClientTest {
 
     @Test
     @DisplayName("Subscribe tx event")
+    @Disabled
     void subscribeTx() throws ExecutionException, InterruptedException {
         CompletableFuture<MevShareEvent> future = new CompletableFuture<>();
         Disposable disposable = MEV_SHARE_CLIENT.subscribeTx(mevShareEvent -> {
