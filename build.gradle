@@ -38,6 +38,7 @@ sourceSets.test.java {
 }
 
 test {
+	maxParallelForks = 1
 	useJUnitPlatform()
 	testLogging {
 		events "passed", "skipped", "failed"
