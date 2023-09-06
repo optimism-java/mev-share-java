@@ -8,10 +8,10 @@ import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -33,7 +33,6 @@ import net.flashbots.models.event.EventHistoryParams;
 import net.flashbots.models.event.MevShareEvent;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.web3j.crypto.Credentials;
@@ -111,34 +110,51 @@ class MevShareClientTest {
     }
 
     @Test
-    @DisplayName("Subscribe event")
-    @Disabled
-    void subscribeEvent() throws InterruptedException, ExecutionException {
-        final CountDownLatch latch = new CountDownLatch(3);
-        var ref = new AtomicReference<MevShareEvent>();
-        Disposable disposable = MEV_SHARE_CLIENT.subscribe(mevShareEvent -> {
-            if (mevShareEvent.getLogs() != null) {
-                ref.getAndSet(mevShareEvent);
-                latch.countDown();
-            }
-        });
-        latch.await();
-        disposable.dispose();
-        assertNotNull(ref.get().getHash());
-    }
-
-    @Test
     @DisplayName("Send bundle with hash")
-    @Disabled
     void sendBundle()
             throws InvalidAlgorithmParameterException, NoSuchAlgorithmException, NoSuchProviderException,
                     ExecutionException, InterruptedException, IOException {
+        BlockingQueue<String> queue = new ArrayBlockingQueue<>(20);
         CompletableFuture<MevShareEvent> future = new CompletableFuture<>();
         Disposable disposable = MEV_SHARE_CLIENT.subscribe(mevShareEvent -> {
-            if (mevShareEvent.getHash() != null) {
+            if (queue.contains(mevShareEvent.getHash())) {
                 future.complete(mevShareEvent);
             }
         });
+
+        EthBlock.Block latest = WEB3J.ethGetBlockByNumber(DefaultBlockParameterName.LATEST, false)
+                .send()
+                .getBlock();
+
+        BigInteger maxPriorityFeePerGas = BigInteger.valueOf(1_000_000_000L);
+
+        Credentials sender = SIGNER;
+        BigInteger nonce = WEB3J.ethGetTransactionCount(sender.getAddress(), DefaultBlockParameterName.PENDING)
+                .send()
+                .getTransactionCount();
+        final String to = Keys.getAddress(Keys.createEcKeyPair());
+
+        RawTransaction rawTransaction = RawTransaction.createTransaction(
+                Network.GOERLI.chainId(),
+                nonce,
+                latest.getGasLimit(),
+                to,
+                Convert.toWei("0.0001", Convert.Unit.ETHER).toBigInteger(),
+                Numeric.toHexString("im shariiiiiing".getBytes(StandardCharsets.UTF_8)),
+                maxPriorityFeePerGas,
+                latest.getBaseFeePerGas().multiply(BigInteger.TWO).add(maxPriorityFeePerGas));
+        byte[] signedMessage = TransactionEncoder.signMessage(rawTransaction, Network.GOERLI.chainId(), sender);
+        String signRawTx = Numeric.toHexString(signedMessage);
+
+        PrivateTxOptions txOptions = new PrivateTxOptions()
+                .setHints(new HintPreferences()
+                        .setCalldata(true)
+                        .setContractAddress(true)
+                        .setFunctionSelector(true)
+                        .setLogs(true));
+
+        CompletableFuture<String> res = MEV_SHARE_CLIENT.sendPrivateTransaction(signRawTx, txOptions);
+        queue.add(res.get());
         MevShareEvent mevShareEvent = future.get();
         disposable.dispose();
 
@@ -152,23 +168,20 @@ class MevShareClientTest {
 
         BundleItemType.HashItem bundleItem = new BundleItemType.HashItem().setHash(mevShareEvent.getHash());
 
-        ECKeyPair senderKeyPair = Keys.createEcKeyPair();
-        Credentials sender = Credentials.create(senderKeyPair);
-        BigInteger nonce = WEB3J.ethGetTransactionCount(sender.getAddress(), DefaultBlockParameterName.PENDING)
+        BigInteger nonce1 = WEB3J.ethGetTransactionCount(sender.getAddress(), DefaultBlockParameterName.PENDING)
                 .send()
                 .getTransactionCount();
         BigInteger gasPrice = WEB3J.ethGasPrice().send().getGasPrice();
         BigInteger gasLimit = DefaultGasProvider.GAS_LIMIT;
-        final String to = "0x56EdF679B0C80D528E17c5Ffe514dc9a1b254b9c";
-        final String amount = "0.01";
-        RawTransaction rawTransaction = RawTransaction.createEtherTransaction(
-                nonce,
+        final String amount = "0.0001";
+        RawTransaction rawTransaction1 = RawTransaction.createEtherTransaction(
+                nonce1,
                 gasPrice,
                 gasLimit,
-                to,
+                Keys.getAddress(Keys.createEcKeyPair()),
                 Convert.toWei(amount, Convert.Unit.ETHER).toBigInteger());
-        byte[] signedMessage = TransactionEncoder.signMessage(rawTransaction, Network.GOERLI.chainId(), sender);
-        String hexValue = Numeric.toHexString(signedMessage);
+        byte[] signedMessage1 = TransactionEncoder.signMessage(rawTransaction1, sender);
+        String hexValue = Numeric.toHexString(signedMessage1);
 
         BundleItemType.TxItem bundleItem1 =
                 new BundleItemType.TxItem().setTx(hexValue).setCanRevert(true);
@@ -176,10 +189,10 @@ class MevShareClientTest {
         BundleParams bundleParams =
                 new BundleParams().setInclusion(inclusion).setBody(List.of(bundleItem, bundleItem1));
 
-        CompletableFuture<SendBundleResponse> res = MEV_SHARE_CLIENT.sendBundle(bundleParams);
+        CompletableFuture<SendBundleResponse> res1 = MEV_SHARE_CLIENT.sendBundle(bundleParams);
 
-        System.out.println(res.get().getBundleHash());
-        assertNotNull(res.get().getBundleHash());
+        System.out.println(res1.get().getBundleHash());
+        assertNotNull(res1.get().getBundleHash());
     }
 
     @Test
@@ -329,29 +342,125 @@ class MevShareClientTest {
 
     @Test
     @DisplayName("Subscribe tx event")
-    @Disabled
-    void subscribeTx() throws ExecutionException, InterruptedException {
+    void subscribeTx()
+            throws ExecutionException, InterruptedException, IOException, InvalidAlgorithmParameterException,
+                    NoSuchAlgorithmException, NoSuchProviderException {
+        BlockingQueue<String> queue = new ArrayBlockingQueue<>(20);
         CompletableFuture<MevShareEvent> future = new CompletableFuture<>();
         Disposable disposable = MEV_SHARE_CLIENT.subscribeTx(mevShareEvent -> {
-            if (mevShareEvent.getLogs() != null) {
+            if (queue.contains(mevShareEvent.getHash())) {
                 future.complete(mevShareEvent);
             }
         });
+
+        EthBlock.Block latest = WEB3J.ethGetBlockByNumber(DefaultBlockParameterName.LATEST, false)
+                .send()
+                .getBlock();
+
+        BigInteger maxPriorityFeePerGas = BigInteger.valueOf(1_000_000_000L);
+
+        Credentials sender = SIGNER;
+        BigInteger nonce = WEB3J.ethGetTransactionCount(sender.getAddress(), DefaultBlockParameterName.PENDING)
+                .send()
+                .getTransactionCount();
+        final String to = Keys.getAddress(Keys.createEcKeyPair());
+
+        RawTransaction rawTransaction = RawTransaction.createTransaction(
+                Network.GOERLI.chainId(),
+                nonce,
+                latest.getGasLimit(),
+                to,
+                Convert.toWei("0.0001", Convert.Unit.ETHER).toBigInteger(),
+                Numeric.toHexString("im shariiiiiing".getBytes(StandardCharsets.UTF_8)),
+                maxPriorityFeePerGas,
+                latest.getBaseFeePerGas().multiply(BigInteger.TWO).add(maxPriorityFeePerGas));
+        byte[] signedMessage = TransactionEncoder.signMessage(rawTransaction, Network.GOERLI.chainId(), sender);
+        String signRawTx = Numeric.toHexString(signedMessage);
+
+        PrivateTxOptions txOptions = new PrivateTxOptions()
+                .setHints(new HintPreferences()
+                        .setCalldata(true)
+                        .setContractAddress(true)
+                        .setFunctionSelector(true)
+                        .setLogs(true));
+
+        CompletableFuture<String> res = MEV_SHARE_CLIENT.sendPrivateTransaction(signRawTx, txOptions);
+        queue.add(res.get());
+
         MevShareEvent mevShareEvent = future.get();
         disposable.dispose();
         assertTrue(mevShareEvent.getTxs() == null || mevShareEvent.getTxs().size() == 1);
     }
 
-    @Disabled("No bundle event in goerli")
     @Test
     @DisplayName("Subscribe bundle event")
-    void subscribeBundle() throws ExecutionException, InterruptedException {
+    void subscribeBundle()
+            throws ExecutionException, InterruptedException, IOException, InvalidAlgorithmParameterException,
+                    NoSuchAlgorithmException, NoSuchProviderException {
+        BlockingQueue<String> queue = new ArrayBlockingQueue<>(20);
         CompletableFuture<MevShareEvent> future = new CompletableFuture<>();
         Disposable disposable = MEV_SHARE_CLIENT.subscribeBundle(mevShareEvent -> {
-            if (mevShareEvent.getLogs() != null) {
+            if (queue.contains(mevShareEvent.getHash())) {
                 future.complete(mevShareEvent);
             }
         });
+
+        BigInteger number = WEB3J.ethGetBlockByNumber(DefaultBlockParameterName.LATEST, false)
+                .send()
+                .getBlock()
+                .getNumber();
+
+        Inclusion inclusion =
+                new Inclusion().setBlock(number.add(BigInteger.ONE)).setMaxBlock(number.add(BigInteger.valueOf(4)));
+
+        Credentials sender = SIGNER;
+        BigInteger nonce = WEB3J.ethGetTransactionCount(sender.getAddress(), DefaultBlockParameterName.PENDING)
+                .send()
+                .getTransactionCount();
+        BigInteger gasPrice = WEB3J.ethGasPrice().send().getGasPrice();
+        BigInteger gasLimit = DefaultGasProvider.GAS_LIMIT;
+        final String amount = "0.0001";
+        RawTransaction rawTransaction = RawTransaction.createEtherTransaction(
+                nonce,
+                gasPrice,
+                gasLimit,
+                Keys.getAddress(Keys.createEcKeyPair()),
+                Convert.toWei(amount, Convert.Unit.ETHER).toBigInteger());
+
+        RawTransaction rawTransaction1 = RawTransaction.createEtherTransaction(
+                nonce.add(BigInteger.ONE),
+                gasPrice,
+                gasLimit,
+                Keys.getAddress(Keys.createEcKeyPair()),
+                Convert.toWei(amount, Convert.Unit.ETHER).toBigInteger());
+        byte[] signedMessage = TransactionEncoder.signMessage(rawTransaction, sender);
+        String hexValue = Numeric.toHexString(signedMessage);
+        byte[] signedMessage1 = TransactionEncoder.signMessage(rawTransaction1, sender);
+        String hexValue1 = Numeric.toHexString(signedMessage1);
+
+        BundleItemType.TxItem bundleItem =
+                new BundleItemType.TxItem().setTx(hexValue).setCanRevert(true);
+        BundleItemType.TxItem bundleItem1 =
+                new BundleItemType.TxItem().setTx(hexValue1).setCanRevert(true);
+
+        HintPreferences hintPreferences = new HintPreferences()
+                .setCalldata(true)
+                .setContractAddress(true)
+                .setFunctionSelector(true)
+                .setLogs(true)
+                .setTxHash(true);
+        List<String> builders = new ArrayList<>();
+        builders.add("flashbots");
+        BundlePrivacy bundlePrivacy =
+                new BundlePrivacy().setHints(hintPreferences).setBuilders(builders);
+
+        BundleParams bundleParams = new BundleParams()
+                .setInclusion(inclusion)
+                .setBody(List.of(bundleItem, bundleItem1))
+                .setPrivacy(bundlePrivacy);
+
+        CompletableFuture<SendBundleResponse> res = MEV_SHARE_CLIENT.sendBundle(bundleParams);
+        queue.add(res.get().getBundleHash());
 
         MevShareEvent mevShareEvent = future.get();
         disposable.dispose();

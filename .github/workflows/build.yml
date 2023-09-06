@@ -24,7 +24,7 @@ jobs:
         env:
           SIGNER_PRIVATE_KEY: ${{ secrets.SIGNER_PRIVATE_KEY }}
           GOERLI_RPC_URL: ${{ secrets.GOERLI_RPC_URL }}
-        run: ./gradlew build
+        run: ./gradlew build -x test
 
   windows:
     name: windows
@@ -45,7 +45,7 @@ jobs:
         env:
           SIGNER_PRIVATE_KEY: ${{ secrets.SIGNER_PRIVATE_KEY }}
           GOERLI_RPC_URL: ${{ secrets.GOERLI_RPC_URL }}
-        run: ./gradlew build
+        run: ./gradlew build -x test
 
   linux:
     name: linux

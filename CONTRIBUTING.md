@@ -36,6 +36,6 @@ Use the following command to set the [remote upstream repo](https://docs.github.
 
 You now have a fork of the mev-share-java repo set up in your local workspace. You can make changes to the files in the workspace, add commits, then push your changes to your fork of the repo to then create a Pull Request.
 
-`./gradlew build`
+`GOERLI_RPC_URL=<GOERLI_RPC_URL> SIGNER_PRIVATE_KEY=<SIGNER_PRIVATE_KEY> ./gradlew clean build`
 
 Run build before you submit a Pull Request.
