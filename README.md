@@ -292,6 +292,13 @@ CompletableFuture<String> res = mevShareClient.sendPrivateTransaction(signRawTx,
 ## Examples
 For more examples, you can see [example](https://github.com/optimism-java/mev-share-java/tree/main/example)
 
+Examples can be run with the following commands:
+```shell
+./gradlew execute -PmainClassName=bundle.RpcSendPrivateTx
+
+./gradlew execute -PmainClassName=event.SseHistorical
+```
+
 > Examples require a `.env` file (or that you populate your environment directly with the appropriate variables).
 
 ```sh
