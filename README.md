@@ -17,14 +17,14 @@ Based on [Specs](https://github.com/flashbots/mev-share)
 <dependency>
 <groupId>me.grapebaba</groupId>
 <artifactId>mev-share-java</artifactId>
-<version>0.1.0</version>
+<version>0.1.1</version>
 </dependency>
 ```
 
 ### Gradle
 
 ```groovy
-implementation 'me.grapebaba:mev-share-java:0.1.0'
+implementation 'me.grapebaba:mev-share-java:0.1.1'
 ```
 
 ## Building Locally
@@ -32,7 +32,7 @@ implementation 'me.grapebaba:mev-share-java:0.1.0'
 To get started you need to install JDK17+, then run the following command:
 
 ```bash
-GOERLI_RPC_URL=<GOERLI_RPC_URL> SIGNER_PRIVATE_KEY=<SIGNER_PRIVATE_KEY> ./gradlew clean build
+./gradlew clean build -x test
 ```
 
 ## Javadoc

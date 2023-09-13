@@ -38,4 +38,4 @@ You now have a fork of the mev-share-java repo set up in your local workspace. Y
 
 `GOERLI_RPC_URL=<GOERLI_RPC_URL> SIGNER_PRIVATE_KEY=<SIGNER_PRIVATE_KEY> ./gradlew clean build`
 
-Run build before you submit a Pull Request.
+Run build and test before you submit a Pull Request.
